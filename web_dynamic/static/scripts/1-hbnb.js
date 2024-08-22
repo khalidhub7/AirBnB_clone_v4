@@ -1,40 +1,35 @@
 $(document).ready(function() {
-    let amenities = {};
+    let selectedAmenities = {};
 
     $('input[type="checkbox"]').change(function() {
-        amenities = {}; // Clear existing data
+        // Get checkbox data
+        let amenityId = $(this).data('id');
+        let amenityName = $(this).data('name');
+        
+        // Update selected amenities
+        $(this).prop("checked") ? selectedAmenities[amenityId] = amenityName : delete selectedAmenities[amenityId];
 
-        $('input[type="checkbox"]:checked').each(function() {
-            let id = $(this).data('id');
-            let name = $(this).data('name');
-            amenities[id] = name;
-        });
+        let amenitiesText = $(".amenities h4").css({
+            "white-space": "nowrap",
+            "text-overflow": "ellipsis" // Added to maintain consistent style
+        }).text(""); // Clear existing text
 
-        let amenText = $(".amenities h4");
-        amenText.html("&nbsp;");
+        let initialWidth = amenitiesText.width();
+        let textToDisplay = '';
 
-        let initWidth = amenText.width();
-        let i = 0, b = 0;
+        // Build text content
+        for (let id in selectedAmenities) {
+            if (textToDisplay) textToDisplay += ", "; // Add comma if not first item
 
-        for (let key in amenities) {
-            if (amenText.width() > initWidth) {
-                amenText.append('...');
+            textToDisplay += selectedAmenities[id];
+
+            amenitiesText.text(textToDisplay); // Temporarily set text to check width
+
+            // Check if overflow occurs
+            if (amenitiesText.width() > initialWidth) {
+                amenitiesText.text(textToDisplay.slice(0, -10) + '...'); // Remove last 4 chars and append '...'
                 break;
             }
-            if (i >= 1) {
-                amenText.append(", ");
-            }
-            let amen = amenities[key];
-            for (let j = 0; j < amen.length; j++) {
-                if (amenText.width() > initWidth) {
-                    amenText.append('...');
-                    b = 1;
-                    break;
-                }
-                amenText.append(amen[j]);
-            }
-            if (b) { break; }
-            i++;
         }
     });
 });

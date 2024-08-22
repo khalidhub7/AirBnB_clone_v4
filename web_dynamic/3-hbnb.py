@@ -1,101 +1,49 @@
+#!/usr/bin/python3
+""" Starts a Flash Web Application """
+from models import storage
+from models.state import State
+from models.city import City
+from models.amenity import Amenity
+from models.place import Place
+from os import environ
+from flask import Flask, render_template
+from uuid import uuid4
+app = Flask(__name__)
+# app.jinja_env.trim_blocks = True
+# app.jinja_env.lstrip_blocks = True
 
-$(document).ready(() => {
-  let amenities = {};
-  // check if input is checked to change ...
-  $('input[type="checkbox"]').change(() => {
-    amenities = {};
 
-    $('input[type="checkbox"]:checked').each(function () {
-      amenities[$(this).data("id")] = $(this).data("name");
-    });
+@app.teardown_appcontext
+def close_db(error):
+    """ Remove the current SQLAlchemy Session """
+    storage.close()
 
-    let amenText = $(".amenities h4").html("&nbsp;");
-    let initWidth = amenText.width();
 
-    let i = 0;
-    for (let key in amenities) {
-      if (amenText.width() > initWidth) {
-        amenText.append("...");
-        break;
-      }
+@app.route('/3-hbnb', strict_slashes=False)
+def hbnb():
+    """ HBNB is alive! """
+    states = storage.all(State).values()
+    states = sorted(states, key=lambda k: k.name)
+    st_ct = []
 
-      if (i >= 1) {
-        amenText.append(", ");
-      }
+    for state in states:
+        st_ct.append([state, sorted(state.cities, key=lambda k: k.name)])
 
-      let amen = amenities[key];
-      for (let j = 0; j < amen.length; j++) {
-        if (amenText.width() > initWidth) {
-          amenText.append("...");
-          break;
-        }
-        amenText.append(amen[j]);
-      }
-      i++;
-    }
-  });
+    amenities = storage.all(Amenity).values()
+    amenities = sorted(amenities, key=lambda k: k.name)
 
-  // Function to update the status
-  function updateApiStatus() {
-    $.get("http://127.0.0.1:5001/api/v1/status/", (data) => {
-      if (data.status === "OK") {
-        $("#api_status").addClass("available");
-      } else {
-        $("#api_status").removeClass("available");
-      }
-    }).fail(() => {
-      $("#api_status").removeClass("available");
-    });
-  }
+    places = storage.all(Place).values()
+    places = sorted(places, key=lambda k: k.name)
+    cache_id = uuid4()
 
-  // Initial status update
-  updateApiStatus();
-  setInterval(updateApiStatus, 30000);
+    return render_template('3-hbnb.html',
+                           states=st_ct,
+                           amenities=amenities,
+                           places=places,
+                           cache_id=cache_id)
 
-  // Function to create a Place article element
-  function createPlaceArticle(place) {
-    const article = $("<article>", {
-      html: `
-      <div class="title_box">
-        <h2>${place.name}</h2>
-        <div class="price_by_night">$${place.price_by_night}</div>
-      </div>
-      <div class="information">
-        <div class="max_guest">${place.max_guest} Guests</div>
-        <div class="number_rooms">${place.number_rooms} Bedrooms</div>
-        <div class="number_bathrooms">${place.number_bathrooms} Bathroom</div>
-      </div>
-      <div class="description">
-        ${place.description}
-      </div>
-    `,
-    });
-    return article;
-  }
 
-  // Function to update the places section
-  function updatePlacesSection(places) {
-    const placesSection = $("section.places");
-    // Clear the existing content
-    placesSection.empty();
-
-    $.each(places, (index, place) => {
-      const placeArticle = createPlaceArticle(place);
-      placesSection.append(placeArticle);
-    });
-  }
-  // Send a POST request to the API endpoint using jQuery
-  $.ajax({
-    url: "http://127.0.0.1:5001/api/v1/places_search",
-    type: "POST",
-    contentType: "application/json",
-    data: "{}",
-    success: function (data) {
-      updatePlacesSection(data);
-    },
-    error: function (error) {
-      console.error("Error fetching data:", error);
-    },
-  });
-});
+if __name__ == "__main__":
+    """ Main Function """
+    app.run(host='0.0.0.0', port=5000)
 

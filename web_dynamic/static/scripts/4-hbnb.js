@@ -1,108 +1,97 @@
-
 $(document).ready(() => {
-  let amenities = {};
-  // check if input is checked to change ...
-  $('input[type="checkbox"]').change(() => {
-    amenities = {};
+    let selectedAmenities = {};
 
-    $('input[type="checkbox"]:checked').each(function () {
-      amenities[$(this).data("id")] = $(this).data("name");
-    });
+    $('input[type="checkbox"]').change(function() {
+        // Get checkbox data
+        let amenityId = $(this).data('id');
+        let amenityName = $(this).data('name');
+        
+        // Update selected amenities
+        $(this).prop("checked") ? selectedAmenities[amenityId] = amenityName : delete selectedAmenities[amenityId];
 
-    let amenText = $(".amenities h4").html("&nbsp;");
-    let initWidth = amenText.width();
+        let amenitiesText = $(".amenities h4").css({
+            "white-space": "nowrap",
+            "text-overflow": "ellipsis" // Added to maintain consistent style
+        }).text(""); // Clear existing text
 
-    let i = 0;
-    for (let key in amenities) {
-      if (amenText.width() > initWidth) {
-        amenText.append("...");
-        break;
-      }
+        let initialWidth = amenitiesText.width();
+        let textToDisplay = '';
 
-      if (i >= 1) {
-        amenText.append(", ");
-      }
+        // Build text content
+        for (let id in selectedAmenities) {
+            if (textToDisplay) textToDisplay += ", "; // Add comma if not first item
 
-      let amen = amenities[key];
-      for (let j = 0; j < amen.length; j++) {
-        if (amenText.width() > initWidth) {
-          amenText.append("...");
-          break;
+            textToDisplay += selectedAmenities[id];
+
+            amenitiesText.text(textToDisplay); // Temporarily set text to check width
+
+            // Check if overflow occurs
+            if (amenitiesText.width() > initialWidth) {
+                amenitiesText.text(textToDisplay.slice(0, -10) + '...'); // Remove last 4 chars and append '...'
+                break;
+            }
         }
-        amenText.append(amen[j]);
-      }
-      i++;
+    });
+
+
+
+
+
+
+
+
+    function create_place_article(place) {
+        let article = $("<article>", {
+            html: `
+            <div class="title_box">
+                <h2>${place.name}</h2>
+                <div class="price_by_night">$${place.price_by_night}</div>
+            </div>
+            <div class="information">
+                <div class="max_guest">${place.max_guest} Guests</div>
+                <div class="number_rooms">${place.number_rooms} Bedrooms</div>
+                <div class="number_bathrooms">${place.number_bathrooms} Bathroom</div>
+            </div>
+            <div class="description">
+                ${place.description}
+            </div>
+            `,
+        });
+        return article;
     }
-  });
 
-  // Function to update the status
-  function updateApiStatus() {
-    $.get("http://127.0.0.1:5001/api/v1/status/", (data) => {
-      if (data.status === "OK") {
-        $("#api_status").addClass("available");
-      } else {
-        $("#api_status").removeClass("available");
+    function update_places_section(places) {
+        let places_section = $("section.places");
+        places_section.empty();
+
+        let i = 0;
+        while (i < places.length) {
+            let place = create_place_article(places[i]);
+            places_section.append(place);
+            i++;
+        }
+    }
+
+
+
+    function fetch_places_with_amenities() {
+        $.ajax({
+            url: "http://127.0.0.1:5001/api/v1/places_search",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ amenities: Object.keys(selectedAmenities) }),
+            success: function(data) {
+                update_places_section(data);
+            },
+            error: function() {
+                console.log("Error when fetching data");
+            }
+        });
       }
-    }).fail(() => {
-      $("#api_status").removeClass("available");
-    });
-  }
 
-  // Initial status update
-  updateApiStatus();
-  setInterval(updateApiStatus, 30000);
 
-  // Function to create a Place article element
-  function createPlaceArticle(place) {
-    const article = $("<article>", {
-      html: `
-      <div class="title_box">
-        <h2>${place.name}</h2>
-        <div class="price_by_night">$${place.price_by_night}</div>
-      </div>
-      <div class="information">
-        <div class="max_guest">${place.max_guest} Guests</div>
-        <div class="number_rooms">${place.number_rooms} Bedrooms</div>
-        <div class="number_bathrooms">${place.number_bathrooms} Bathroom</div>
-      </div>
-      <div class="description">
-        ${place.description}
-      </div>
-    `,
+    $("button.submit_search").click(function () {
+      fetch_places_with_amenities();
     });
-    return article;
-  }
-
-  // Function to update the places section
-  function updatePlacesSection(places) {
-    const placesSection = $("section.places");
-    // Clear the existing content
-    placesSection.empty();
-
-    $.each(places, (index, place) => {
-      const placeArticle = createPlaceArticle(place);
-      placesSection.append(placeArticle);
-    });
-  }
-  // Send a POST request to the API endpoint using jQuery
-  function fetchPlacesWithAmenities() {
-    $.ajax({
-      url: "http://127.0.0.1:5001/api/v1/places_search",
-      type: "POST",
-      contentType: "application/json",
-      data: JSON.stringify({ amenities: Object.keys(amenities) }),
-      success: function (data) {
-        updatePlacesSection(data);
-      },
-      error: function (error) {
-        console.error("Error fetching data:", error);
-      },
-    });
-  }
-  // Button click event to trigger the search with amenities
-  $("button.submit_search").click(function () {
-    fetchPlacesWithAmenities();
+    fetch_places_with_amenities();
   });
-  fetchPlacesWithAmenities();
-});
-

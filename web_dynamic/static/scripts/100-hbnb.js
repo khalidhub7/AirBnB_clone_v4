@@ -1,108 +1,106 @@
-
 $(document).ready(() => {
-  let amenities = {};
-  // check if input is checked to change ...
-  $('.amenities input[type="checkbox"]').change(() => {
-    amenities = {};
+    let selectedAmenities = {};
+    let selectedStates = {};
+    let selectedCities = {};
 
-    $('input[type="checkbox"]:checked').each(function () {
-      amenities[$(this).data("id")] = $(this).data("name");
-    });
-
-    let amenText = $(".amenities h4").html("&nbsp;");
-    let initWidth = amenText.width();
-
-    let i = 0;
-    for (let key in amenities) {
-      if (amenText.width() > initWidth) {
-        amenText.append("...");
-        break;
-      }
-
-      if (i >= 1) {
-        amenText.append(", ");
-      }
-
-      let amen = amenities[key];
-      for (let j = 0; j < amen.length; j++) {
-        if (amenText.width() > initWidth) {
-          amenText.append("...");
-          break;
+    // Handle checkbox changes for amenities, states, and cities
+    $('input[type="checkbox"]').change(function() {
+        let id = $(this).data('id');
+        let name = $(this).data('name');
+        
+        if ($(this).closest('div.amenities').length > 0) {
+            // Update selected amenities
+            $(this).prop("checked") ? selectedAmenities[id] = name : delete selectedAmenities[id];
+        } else if ($(this).closest('div.locations').length > 0 && $(this).closest('ul').parent().is('li')) {
+            // Update selected states
+            $(this).prop("checked") ? selectedStates[id] = name : delete selectedStates[id];
+        } else if ($(this).closest('div.locations').length > 0 && $(this).closest('ul').parent().is('ul')) {
+            // Update selected cities
+            $(this).prop("checked") ? selectedCities[id] = name : delete selectedCities[id];
         }
-        amenText.append(amen[j]);
-      }
-      i++;
+
+        updateLocationsText();
+    });
+
+    function updateLocationsText() {
+        let locationsText = $(".locations h4").css({
+            "white-space": "nowrap",
+            "text-overflow": "ellipsis" // Maintain consistent style
+        }).text(""); // Clear existing text
+
+        let initialWidth = locationsText.width();
+        let textToDisplay = '';
+
+        // Build text content for states and cities
+        for (let id in selectedStates) {
+            if (textToDisplay) textToDisplay += ", ";
+            textToDisplay += selectedStates[id];
+        }
+        for (let id in selectedCities) {
+            if (textToDisplay) textToDisplay += ", ";
+            textToDisplay += selectedCities[id];
+        }
+
+        locationsText.text(textToDisplay); // Temporarily set text to check width
+
+        // Check if overflow occurs
+        if (locationsText.width() > initialWidth) {
+            locationsText.text(textToDisplay.slice(0, -10) + '...'); // Remove last 10 chars and append '...'
+        }
     }
-  });
 
-  // Function to update the status
-  function updateApiStatus() {
-    $.get("http://127.0.0.1:5001/api/v1/status/", (data) => {
-      if (data.status === "OK") {
-        $("#api_status").addClass("available");
-      } else {
-        $("#api_status").removeClass("available");
-      }
-    }).fail(() => {
-      $("#api_status").removeClass("available");
+    function create_place_article(place) {
+        let article = $("<article>", {
+            html: `
+            <div class="title_box">
+                <h2>${place.name}</h2>
+                <div class="price_by_night">$${place.price_by_night}</div>
+            </div>
+            <div class="information">
+                <div class="max_guest">${place.max_guest} Guests</div>
+                <div class="number_rooms">${place.number_rooms} Bedrooms</div>
+                <div class="number_bathrooms">${place.number_bathrooms} Bathroom</div>
+            </div>
+            <div class="description">
+                ${place.description}
+            </div>
+            `,
+        });
+        return article;
+    }
+
+    function update_places_section(places) {
+        let places_section = $("section.places");
+        places_section.empty();
+
+        let i = 0;
+        while (i < places.length) {
+            let place = create_place_article(places[i]);
+            places_section.append(place);
+            i++;
+        }
+    }
+
+    function fetch_places_with_amenities() {
+        $.ajax({
+            url: "http://127.0.0.1:5001/api/v1/places_search",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                amenities: Object.keys(selectedAmenities),
+                states: Object.keys(selectedStates),
+                cities: Object.keys(selectedCities)
+            }),
+            success: function(data) {
+                update_places_section(data);
+            },
+            error: function() {
+                console.log("Error when fetching data");
+            }
+        });
+    }
+
+    $("button.submit_search").click(function () {
+        fetch_places_with_amenities(); // Fetch data when button is clicked
     });
-  }
-
-  // Initial status update
-  updateApiStatus();
-  setInterval(updateApiStatus, 30000);
-
-  // Function to create a Place article element
-  function createPlaceArticle(place) {
-    const article = $("<article>", {
-      html: `
-      <div class="title_box">
-        <h2>${place.name}</h2>
-        <div class="price_by_night">$${place.price_by_night}</div>
-      </div>
-      <div class="information">
-        <div class="max_guest">${place.max_guest} Guests</div>
-        <div class="number_rooms">${place.number_rooms} Bedrooms</div>
-        <div class="number_bathrooms">${place.number_bathrooms} Bathroom</div>
-      </div>
-      <div class="description">
-        ${place.description}
-      </div>
-    `,
-    });
-    return article;
-  }
-
-  // Function to update the places section
-  function updatePlacesSection(places) {
-    const placesSection = $("section.places");
-    // Clear the existing content
-    placesSection.empty();
-
-    $.each(places, (index, place) => {
-      const placeArticle = createPlaceArticle(place);
-      placesSection.append(placeArticle);
-    });
-  }
-  // Send a POST request to the API endpoint using jQuery
-  function fetchPlacesWithAmenities() {
-    $.ajax({
-      url: "http://127.0.0.1:5001/api/v1/places_search",
-      type: "POST",
-      contentType: "application/json",
-      data: JSON.stringify({ amenities: Object.keys(amenities) }),
-      success: function (data) {
-        updatePlacesSection(data);
-      },
-      error: function (error) {
-        console.error("Error fetching data:", error);
-      },
-    });
-  }
-  // Button click event to trigger the search with amenities
-  $("button.submit_search").click(function () {
-    fetchPlacesWithAmenities();
-  });
-  fetchPlacesWithAmenities();
 });
-
